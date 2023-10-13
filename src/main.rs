@@ -10,7 +10,7 @@ impl Ship {
         Ship {}
     }
 
-    fn get_distance(&mut self,v2:Vec2) -> f64 {
+    fn get_distance(&self,v2:Vec2) -> f64 {
         let v1 = position();
         let dx = v1.x - v2.x;
         let dy = v1.y - v2.y;
@@ -35,18 +35,9 @@ impl Ship {
     
         time_to_collision
     }
-    
-    
 
-    pub fn tick(&mut self) {
-        // if self.get_distance(target()) > 500.0 {
-        //     accelerate(target()-position())
-        // }
-        
-        let bullet_time: f64 = 1.0;
-
-
-
+    fn predict_target(&self) -> Vec2 {
+        let bullet_speed: f64 = 1000.0;
         let time = self.when_will_two_objects_meet_without_acceleration(
             position(),
             1000.0,
@@ -54,41 +45,96 @@ impl Ship {
             target_velocity(),
         );
 
-        let final_position = self.projectile_position(
+        let mut final_position = self.projectile_position(
             target(), 
             target_velocity(), 
             vec2(0.0, 0.0), 
             time
+        );
+
+
+        let colors: Vec<u32> = vec![
+            0xFF0000, // Red
+            0x00FF00, // Green
+            0x0000FF, // Blue
+            0xFFFF00, // Yellow
+            0x800080, // Purple
+        ];
+
+        for color in colors {
+            draw_line(
+                position(), 
+                final_position - position(), 
+                color);
+            let new_time = self.get_distance(final_position)/1000.0;
+            final_position = self.projectile_position(
+                target(), 
+                target_velocity(), 
+                vec2(0.0, 0.0), 
+                new_time
             );
-        // let position = Vec2::new(10.0, 20.0); // Create a Vec2<f64> with the correct types
-        let color = 0xFF0000; // Assuming the color is represented as a u32
-        let heading_color = 0x44FF00;
+
+        }
+        final_position
+    }
     
-        // draw_text!(position, color, "Hello, World!");
-        
+    fn calculate_endpoint(
+        &self, 
+        final_position: Vec2,
+    ) -> Vec2 {
+        let line_length = self.get_distance(final_position); // Length of the line in units
+        let endpoint_x = position().x + line_length * heading().cos();
+        let endpoint_y = position().y + line_length * heading().sin();
+        Vec2::new(endpoint_x, endpoint_y)
+    }
+    
+
+    pub fn tick(&mut self) {
+
+        let color = 0xFF0000; 
+        let heading_color = 0x44FF00;
+
+        let final_position = self.predict_target();
 
         let angle_difference = angle_diff(heading(), (final_position - position()).angle());
 
-        draw_line(position(), target(), color);
+        let endpoint = self.calculate_endpoint(final_position);
 
-        draw_line(position(), final_position - position(), color);
-        let line_length = 1000.0; // Length of the line in units
-        let endpoint_x = position().x + line_length * heading().cos();
-        let endpoint_y = position().y + line_length * heading().sin();
-        let endpoint = Vec2::new(endpoint_x, endpoint_y);
-    
-        // Now, you can draw the line from your current position to the calculated endpoint
+        draw_line(
+            position(), 
+            target(), 
+            color);
+        draw_line(
+            position(), 
+            endpoint,
+            heading_color);
 
-        draw_line(position(), endpoint, heading_color);
+        
+        
 
 
+        debug!("angular_velocity: {}", angular_velocity());
+        debug!("angle_difference: {}", angle_difference);
+        // debug!("pred_t: {}", time);
+        // debug!("pred_dist/bullet_speed: {}", pred_dist_devide_by_bullet_speed);
 
-        debug!("time: {}\nfinal_position{}",time,angle_difference);
-        turn(angle_difference);
-        // if angle_difference < 0.0745329 && angle_difference > -0.0745329 {
-        //     fire(0)
-        // } 
+        
+        
+
+        if (angle_difference > -0.2 && angle_difference < 0.2) && (angular_velocity() > -0.6 && angular_velocity() < 0.6){
+            if angle_difference < 0.0 {
+                turn(angle_difference-0.08*get_distance(final_position,endpoint));
+            } else {
+                turn(angle_difference+0.08*get_distance(final_position,endpoint));
+            }
+
+        } else {
+            turn(angle_difference)
+        }
+        
+        
         fire(0)
+        
 
         
     }
@@ -96,5 +142,12 @@ impl Ship {
 
 
 
+
+fn get_distance(v1:Vec2,v2:Vec2) -> f64 {
+    let dx = v1.x - v2.x;
+    let dy = v1.y - v2.y;
+
+    (dx * dx + dy * dy).sqrt()
+}
 
 
