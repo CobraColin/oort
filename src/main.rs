@@ -45,13 +45,20 @@ impl Ship {
         let discriminant = dot_product_pos1_and_vel1.powi(2) + position1.length().powi(2) * (1_000_000.0 - speed_squared);
         
         if discriminant > 0.0 {
-            let up_upstares = dot_product_pos1_and_vel1 + discriminant.sqrt();
             let down_stairs = 1_000_000.0 - speed_squared;
 
             if down_stairs != 0.0 {
-                let plus_version = up_upstares/down_stairs;
-                debug!("plus_version: {}", plus_version);
-                return plus_version
+                let up_upstares_plus = dot_product_pos1_and_vel1 + discriminant.sqrt();
+                let up_upstares_minus = dot_product_pos1_and_vel1 - discriminant.sqrt();
+
+
+                let plus_version = up_upstares_plus/down_stairs;
+                let minus_version = up_upstares_minus/down_stairs;
+                if plus_version > minus_version {
+                    return plus_version
+                } else{
+                    return minus_version
+                }
             } 
         }
 
@@ -76,7 +83,7 @@ impl Ship {
         );
 
         // draw line to initial estimated predicted position
-        self.render_predicted_ship(predicted_position, (6*10) as f64);
+        
 
 
 
@@ -94,6 +101,7 @@ impl Ship {
             );
 
             if number == 3 {
+                self.render_predicted_ship(predicted_position, (10) as f64,4);
                 debug!("gokken: {}", new_time);
             }
      
@@ -128,7 +136,10 @@ impl Ship {
         let endpoint_y = position().y + line_length * heading().sin();
         Vec2::new(endpoint_x, endpoint_y)
     }
-    fn render_predicted_ship(&self,ship:Vec2,radius:f64) {
+
+    /*  0 is red, 1 is green, 2 is blue, 3 is yellow and 4 is purple*/
+    fn render_predicted_ship(&self,ship:Vec2,radius:f64,color:u8) {
+        
         let colors: Vec<u32> = vec![
             0xFF0000, // Red
             0x00FF00, // Green
@@ -136,7 +147,7 @@ impl Ship {
             0xFFFF00, // Yellow
             0x800080, // Purple
         ];
-        draw_triangle(ship, radius,colors[4])
+        draw_triangle(ship, radius,colors[color as usize])
     } 
 
     fn look_at(&mut self, angle: f64) {
@@ -212,7 +223,7 @@ impl Ship {
             0x0000FF
         );
 
-        self.render_predicted_ship(predicted_position,10.0);
+        self.render_predicted_ship(predicted_position,10.0, 0);
         
         debug!("angular_velocity: {}", angular_velocity());
         debug!("----------");
