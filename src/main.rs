@@ -29,7 +29,9 @@ impl Ship {
         let velocity = velocity1 + velocity2*-1.0;
         let position = position2 + position1*-1.0;
 
-
+        debug!("velocity1: {}", velocity1);
+        debug!("velocity2: {}", velocity2);
+        debug!("velocity: {}", velocity);
         let magnitude = position.length();
         let time_to_collision = magnitude / velocity.length();
     
