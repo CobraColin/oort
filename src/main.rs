@@ -9,6 +9,7 @@
 //
 // You can scale a vector by a number: vec2(a, b) * c == vec2(a * c, b * c)
 
+
 use oort_api::prelude::*;
 
 pub struct Ship {
@@ -192,34 +193,15 @@ impl Ship {
         let color = 0xFF0000; 
         let heading_color = 0x44FF00;
 
-        let bullet_speed: f64 = 1000.0;
-        let mut predicted_position = self.predict_target_in_one_go(
-            target(),
-            target_velocity(),
-            vec2(0.0,0.0),
-            bullet_speed,
-        );
-
-
-        let mut gokken_predicted_position = self.predict_target_met_gokken(
+        let bullet_speed: f64 = 1000.0/f64::sqrt(2.0);
+        let predicted_position = self.predict_target(
             target(),
             target_velocity(),
             acceleration_of_target,
             bullet_speed,
         );
 
-
-        let switch = true;
-        if switch {
-            std::mem::swap(&mut predicted_position, &mut gokken_predicted_position);
-        }
-
-        let angle_difference = angle_diff(
-            heading(),
-            (
-                predicted_position - position()
-            ).angle()
-            );
+        let angle_difference = angle_diff(heading(), (predicted_position - position()).angle());
         
         // calculate a vec2 that goes from our headings and has the length of our position to predicted_position
         let endpoint = self.calculate_endpoint(predicted_position);
@@ -237,37 +219,23 @@ impl Ship {
             heading_color
         );
 
-        draw_line(
-            predicted_position, 
-            target(),
-            0x800080
-        );
-        draw_line(
-            position(), 
-            predicted_position,
-            0x0000FF
-        );
-
-        self.render_predicted_ship(predicted_position,10.0, 0);
+        self.render_predicted_ship(predicted_position,10.0);
         
-        debug!("angular_velocity: {}", angular_velocity());
+        debug!("acceleration_of_target: {}", acceleration_of_target);
         debug!("----------");
-        // debug!("heading: {}", heading());
-        debug!("gokken     : {}", gokken_predicted_position);
-        debug!("niet gokken: {}", predicted_position);
+        debug!("heading: {}", heading());
+        debug!("angular_velocity: {}", angular_velocity());
+        debug!("angle_difference: {}", angle_difference);
         
 
         
         
 
-        if angle_difference > -0.005 && angle_difference < 0.005 && (angular_velocity() > -0.6 && angular_velocity() < 0.6){
+        if angle_difference > -0.005 && angle_difference < 0.005{
             fire(0);
         }
-
-        self.look_at(angle_difference,predicted_position,endpoint);
-
+        self.look_at(angle_difference);
         
-
         
         
         
