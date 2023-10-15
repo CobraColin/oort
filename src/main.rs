@@ -9,7 +9,6 @@
 //
 // You can scale a vector by a number: vec2(a, b) * c == vec2(a * c, b * c)
 
-
 use oort_api::prelude::*;
 
 pub struct Ship {
