@@ -11,17 +11,141 @@
 
 use oort_api::prelude::*;
 
+#[derive(Clone)]
+enum ColorName {
+    Red,
+    Green,
+    Blue,
+    Orange,
+    Yellow,
+    Purple,
+    Pink,
+    Brown,
+    Cyan,
+    Magenta,
+    Teal,
+    Lavender,
+    Maroon,
+    Olive,
+    Coral,
+    Indigo,
+    Turquoise,
+    DarkSlateGray,
+    DarkMagenta,
+    Gold,
+    SeaGreen,
+    Tomato,
+    RoyalBlue,
+    DarkOrange,
+    Lime,
+    DarkViolet,
+    DarkGreen,
+    DarkOliveGreen,
+    DarkCyan,
+    DarkGoldenrod,
+    DarkSlateBlue,
+    DarkRed,
+    LightPink,
+    LightSalmon,
+    LightSeaGreen,
+    LightSkyBlue,
+    LightSlateGray,
+    LightSteelBlue,
+    MediumAquamarine,
+    MediumOrchid,
+    MediumPurple,
+    MediumSlateBlue,
+    MediumTurquoise,
+    MediumVioletRed,
+    MidnightBlue,
+    SlateBlue,
+    SandyBrown,
+    Silver,
+    White,
+}
+
+
+struct ColorPalette {
+    colors: [u32; 50],
+}
+
+impl ColorPalette {
+    fn new() -> ColorPalette {
+        let mut colors = [0; 50];
+        
+        colors[ColorName::Red as usize] = 0xFF0000;
+        colors[ColorName::Green as usize] = 0x00FF00;
+        colors[ColorName::Blue as usize] = 0x0000FF;
+        colors[ColorName::Orange as usize] = 0xFFA500;
+        colors[ColorName::Yellow as usize] = 0xFFFF00;
+        colors[ColorName::Purple as usize] = 0x800080;
+        colors[ColorName::Pink as usize] = 0xFFC0CB;
+        colors[ColorName::Brown as usize] = 0xA52A2A;
+        colors[ColorName::Cyan as usize] = 0x00FFFF;
+        colors[ColorName::Magenta as usize] = 0xFF00FF;
+        colors[ColorName::Teal as usize] = 0x008080;
+        colors[ColorName::Lavender as usize] = 0xE6E6FA;
+        colors[ColorName::Maroon as usize] = 0x800000;
+        colors[ColorName::Olive as usize] = 0x808000;
+        colors[ColorName::Coral as usize] = 0xFF6F61;
+        colors[ColorName::Indigo as usize] = 0x4B0082;
+        colors[ColorName::Turquoise as usize] = 0x40E0D0;
+        colors[ColorName::DarkSlateGray as usize] = 0x2F4F4F;
+        colors[ColorName::DarkMagenta as usize] = 0x8B008B;
+        colors[ColorName::Gold as usize] = 0xFFD700;
+        colors[ColorName::SeaGreen as usize] = 0x2E8B57;
+        colors[ColorName::Tomato as usize] = 0xFF6347;
+        colors[ColorName::RoyalBlue as usize] = 0x4169E1;
+        colors[ColorName::DarkOrange as usize] = 0xFF8C00;
+        colors[ColorName::Lime as usize] = 0x00FF00;
+        colors[ColorName::DarkViolet as usize] = 0x9400D3;
+        colors[ColorName::DarkGreen as usize] = 0x006400;
+        colors[ColorName::DarkOliveGreen as usize] = 0x556B2F;
+        colors[ColorName::DarkCyan as usize] = 0x008B8B;
+        colors[ColorName::DarkGoldenrod as usize] = 0xB8860B;
+        colors[ColorName::DarkSlateBlue as usize] = 0x483D8B;
+        colors[ColorName::DarkRed as usize] = 0x8B0000;
+        colors[ColorName::LightPink as usize] = 0xFFB6C1;
+        colors[ColorName::LightSalmon as usize] = 0xFFA07A;
+        colors[ColorName::LightSeaGreen as usize] = 0x20B2AA;
+        colors[ColorName::LightSkyBlue as usize] = 0x87CEFA;
+        colors[ColorName::LightSlateGray as usize] = 0x778899;
+        colors[ColorName::LightSteelBlue as usize] = 0xB0C4DE;
+        colors[ColorName::MediumAquamarine as usize] = 0x66CDAA;
+        colors[ColorName::MediumOrchid as usize] = 0xBA55D3;
+        colors[ColorName::MediumPurple as usize] = 0x9370DB;
+        colors[ColorName::MediumSlateBlue as usize] = 0x7B68EE;
+        colors[ColorName::MediumTurquoise as usize] = 0x48D1CC;
+        colors[ColorName::MediumVioletRed as usize] = 0xC71585;
+        colors[ColorName::MidnightBlue as usize] = 0x191970;
+        colors[ColorName::SlateBlue as usize] = 0x6A5ACD;
+        colors[ColorName::SandyBrown as usize] = 0xF4A460;
+        colors[ColorName::Silver as usize] = 0xC0C0C0;
+        colors[ColorName::White as usize] = 0xFFFFFF;
+
+        ColorPalette { colors }
+    }
+
+
+}
+
 pub struct Ship {
-    last_target_position:Vec2,
+    last_target_velocity:Vec2,
     last_time:f64,
+    color_palette:ColorPalette,
 }
 
 impl Ship {
     pub fn new() -> Ship {
         Ship {
-            last_target_position: vec2(0.0,0.0),
+            last_target_velocity: vec2(0.0,0.0),
             last_time:0.0,
+            color_palette:ColorPalette::new()
         }
+        
+    }
+    fn get_color(&self, color_name: ColorName) -> u32 {
+        self.color_palette.colors[color_name as usize]
     }
 
     fn get_distance(&self,v2:Vec2) -> f64 {
@@ -80,20 +204,19 @@ impl Ship {
 
 
 
-    fn predict_target_met_gokken(&self,target_position:Vec2,target_velocity:Vec2,acceleration:Vec2,bullet_speed:f64) -> Vec2 {
+    fn predict_target_with_guessing(&self,target_position:Vec2,target_velocity:Vec2,acceleration:Vec2,bullet_speed:f64) -> Vec2 {
         
-        // get initial estimate of the time
+        
 
-        
         // calculate the predicted_position with the initial estimate of the time
         let mut predicted_position = self.projectile_position(
             target_position, 
             target_velocity, 
             acceleration, 
-             self.get_distance(target())/1000.0
+             self.get_distance(target())/bullet_speed
         );
 
-        // draw line to initial estimated predicted position
+
         
 
 
@@ -101,7 +224,7 @@ impl Ship {
         for number in (1..=re_calc_amount).rev() {
             // get the time it will take the bullet to travel over our position
             // to the predicted position
-            let new_time = self.get_distance(predicted_position)/1000.0; 
+            let new_time = self.get_distance(predicted_position)/bullet_speed; 
 
             predicted_position = self.projectile_position(
                 target_position, 
@@ -110,13 +233,13 @@ impl Ship {
                 new_time
             );
 
-            if number == re_calc_amount {
-                self.render_predicted_ship(predicted_position, (10) as f64,4);
-                debug!("gokken: {}", new_time);
-            }
+            // if number == re_calc_amount {
+            //     self.render_predicted_ship(predicted_position, 10.0,self.get_color(ColorName::MediumVioletRed));
+            // }
      
 
         }
+
         predicted_position
     }
     
@@ -148,16 +271,8 @@ impl Ship {
     }
 
     /*  0 is red, 1 is green, 2 is blue, 3 is yellow and 4 is purple*/
-    fn render_predicted_ship(&self,ship:Vec2,radius:f64,color:u8) {
-        
-        let colors: Vec<u32> = vec![
-            0xFF0000, // Red
-            0x00FF00, // Green
-            0x0000FF, // Blue
-            0xFFFF00, // Yellow
-            0x800080, // Purple
-        ];
-        draw_triangle(ship, radius,colors[color as usize])
+    fn render_predicted_ship(&self,ship:Vec2,radius:f64,color:u32) {
+        draw_triangle(ship, radius,color)
     } 
 
     fn look_at(&mut self, angle: f64,final_position: Vec2,endpoint: Vec2) {
@@ -185,12 +300,11 @@ impl Ship {
 
     pub fn tick(&mut self) {
         let mut acceleration_of_target = vec2(0.0, 0.0);
-        if self.last_target_position != vec2(0.0, 0.0) {
-            acceleration_of_target = (target()-(self.last_target_position))
+        if self.last_target_velocity != vec2(0.0, 0.0) {
+            acceleration_of_target = (target_velocity()-(self.last_target_velocity))/TICK_LENGTH
         }
 
-        let color = 0xFF0000; 
-        let heading_color = 0x44FF00;
+
 
         let bullet_speed: f64 = 1000.0;
         let mut predicted_position = self.predict_target_in_one_go(
@@ -201,12 +315,19 @@ impl Ship {
         );
 
 
-        let mut gokken_predicted_position = self.predict_target_met_gokken(
+        let mut gokken_predicted_position = self.predict_target_with_guessing(
             target(),
-            target_velocity(),
+            target_velocity()-velocity(),
             acceleration_of_target,
             bullet_speed,
         );
+
+
+        debug!("acceleration of target: {}", acceleration_of_target);
+        debug!("----------");
+        debug!("no guessing: {}", predicted_position);
+        debug!("guessing     : {}", gokken_predicted_position);
+
 
 
         let switch = true;
@@ -229,34 +350,29 @@ impl Ship {
         draw_line(
             position(), 
             target(), 
-            color
+            self.get_color(ColorName::Red)
         );
         draw_line(
             position(), 
             endpoint,
-            heading_color
+            self.get_color(ColorName::Green)
         );
 
         draw_line(
             predicted_position, 
             target(),
-            0x800080
+            self.get_color(ColorName::MediumPurple)
         );
         draw_line(
             position(), 
             predicted_position,
-            0x0000FF
+            self.get_color(ColorName::Blue)
         );
 
-        self.render_predicted_ship(predicted_position,10.0, 0);
-        
-        debug!("angular_velocity: {}", angular_velocity());
-        debug!("----------");
-        // debug!("heading: {}", heading());
-        debug!("gokken     : {}", gokken_predicted_position);
-        debug!("niet gokken: {}", predicted_position);
-        
 
+
+        self.render_predicted_ship(predicted_position,10.0, self.get_color(ColorName::DarkRed));
+        
         
         
 
@@ -268,11 +384,11 @@ impl Ship {
 
         
 
-        
+
         
         
         self.last_time = current_time();
-        self.last_target_position = target();
+        self.last_target_velocity = target_velocity();
     }
 }
 
@@ -292,6 +408,7 @@ fn make_relative_to_origin(origin: &Vec2, relative_point: &Vec2) -> Vec2 {
         y: relative_point.y - origin.y,
     }
 }
+
 fn main() {
 
 }
