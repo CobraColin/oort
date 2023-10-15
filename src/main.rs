@@ -9,7 +9,7 @@
 //
 // You can scale a vector by a number: vec2(a, b) * c == vec2(a * c, b * c)
 
-use oort_api::prelude::*;
+use oort_api::prelude::{*, maths_rs::vec};
 
 #[derive(Clone)]
 enum ColorName {
@@ -133,6 +133,7 @@ pub struct Ship {
     last_target_velocity:Vec2,
     last_time:f64,
     color_palette:ColorPalette,
+    last_target_velocities:Vec<Vec2>,
 }
 
 impl Ship {
@@ -140,7 +141,8 @@ impl Ship {
         Ship {
             last_target_velocity: vec2(0.0,0.0),
             last_time:0.0,
-            color_palette:ColorPalette::new()
+            color_palette:ColorPalette::new(),
+            last_target_velocities: vec![],
         }
         
     }
@@ -156,12 +158,6 @@ impl Ship {
         (dx * dx + dy * dy).sqrt()
     }
 
-    fn projectile_position(&self,position: Vec2, velocity: Vec2, acceleration: Vec2, time: f64) -> Vec2 {
-        // calculates p = p₀ + v₀t + ½at²
-        let predicted_position = position + velocity * time + 0.5 * acceleration * time.powi(2);
-        // return p
-        predicted_position
-    }
 
     
 
@@ -203,13 +199,12 @@ impl Ship {
     }
 
 
-
     fn predict_target_with_guessing(&self,target_position:Vec2,target_velocity:Vec2,acceleration:Vec2,bullet_speed:f64) -> Vec2 {
         
         
 
         // calculate the predicted_position with the initial estimate of the time
-        let mut predicted_position = self.projectile_position(
+        let mut predicted_position = kinematic_projectile_position(
             target_position, 
             target_velocity, 
             acceleration, 
@@ -220,13 +215,13 @@ impl Ship {
         
 
 
-        let re_calc_amount = 5;
+        let re_calc_amount = 50;
         for number in (1..=re_calc_amount).rev() {
             // get the time it will take the bullet to travel over our position
             // to the predicted position
             let new_time = self.get_distance(predicted_position)/bullet_speed; 
 
-            predicted_position = self.projectile_position(
+            predicted_position = kinematic_projectile_position(
                 target_position, 
                 target_velocity, 
                 acceleration, 
@@ -243,14 +238,14 @@ impl Ship {
         predicted_position
     }
     
-    fn predict_target_in_one_go(&self,target_position:Vec2,target_velocity:Vec2,acceleration:Vec2,bullet_speed:f64) -> Vec2 {
+    fn predict_target_in_one_go(&self,target_position:Vec2,target_velocity:Vec2,acceleration:Vec2,_bullet_speed:f64) -> Vec2 {
         
         // predict the time
         let time = self.when_will_two_objects_meet_without_acceleration(target_position, target_velocity);
 
         
         // calculate the predicted_position with the initial estimate of the time
-        let predicted_position = self.projectile_position(
+        let predicted_position = kinematic_projectile_position(
             target_position, 
             target_velocity, 
             acceleration, 
@@ -270,7 +265,6 @@ impl Ship {
         Vec2::new(endpoint_x, endpoint_y)
     }
 
-    /*  0 is red, 1 is green, 2 is blue, 3 is yellow and 4 is purple*/
     fn render_predicted_ship(&self,ship:Vec2,radius:f64,color:u32) {
         draw_triangle(ship, radius,color)
     } 
@@ -287,9 +281,9 @@ impl Ship {
         } else {
             if (angle > -0.2 && angle < 0.2) && (angular_velocity() > -0.6 && angular_velocity() < 0.6){
                 if angle < 0.0 {
-                    turn(angle-0.05*get_distance(final_position,endpoint));
+                    turn(angle-0.05*get_distance(final_position,endpoint)/ (position().distance(final_position)/100.) );
                 } else {
-                    turn(angle+0.05*get_distance(final_position,endpoint));
+                    turn(angle+0.05*get_distance(final_position,endpoint)/ (position().distance(final_position)/100.) );
                 }
     
             } else {
@@ -298,10 +292,36 @@ impl Ship {
         }
     }
 
+    fn calculate_average_acceleration_of_target(&self) -> Vec2 {
+        let mut total = vec2(0.0, 0.0);
+        let vec_length = self.last_target_velocities.len();
+        for i in (0..vec_length).rev() {
+            let old_velocity = self.last_target_velocities[i];
+
+            if i == 0 {
+                total += (target_velocity()-velocity()-old_velocity)/TICK_LENGTH;
+                debug!("a{}",total/vec_length as f64);
+                return total/vec_length as f64
+            }
+            total += (self.last_target_velocities[i-1]-old_velocity)/TICK_LENGTH
+
+
+        }
+        vec2(0.0, 0.0)
+    }
+
+    fn numerical_differentiation_of_acceleration_of_target(&self) -> Vec2{
+        let above_stairs = (target_velocity()-velocity())-self.last_target_velocities[0];
+        let down_stairs = TICK_LENGTH;
+        above_stairs/down_stairs
+    }
+
     pub fn tick(&mut self) {
         let mut acceleration_of_target = vec2(0.0, 0.0);
-        if self.last_target_velocity != vec2(0.0, 0.0) {
-            acceleration_of_target = (target_velocity()-(self.last_target_velocity))/TICK_LENGTH
+        if self.last_target_velocities.len() > 0 {
+            acceleration_of_target = self.calculate_average_acceleration_of_target();
+            acceleration_of_target = self.numerical_differentiation_of_acceleration_of_target();
+            // acceleration_of_target = (target_velocity()-velocity()-(self.last_target_velocity))/TICK_LENGTH
         }
 
 
@@ -323,7 +343,7 @@ impl Ship {
         );
 
 
-        debug!("acceleration of target: {}", acceleration_of_target);
+        debug!("target_velocity: {}", target_velocity().length());
         debug!("----------");
         debug!("no guessing: {}", predicted_position);
         debug!("guessing     : {}", gokken_predicted_position);
@@ -376,19 +396,33 @@ impl Ship {
         
         
 
-        if angle_difference > -0.005 && angle_difference < 0.005 && (angular_velocity() > -0.6 && angular_velocity() < 0.6){
-            fire(0);
+        if angle_difference > -0.005 && angle_difference < 0.005{
+            // if current_tick() > 600 {
+                fire(0);
+            // }
+            
         }
 
         self.look_at(angle_difference,predicted_position,endpoint);
-
+        
+        debug!("acceleration: {}",predicted_position-position());
+        // if position().distance(target()) < 1000.0 {
+        //     accelerate(predicted_position-position()/100.);
+        // } else if position().distance(target()) > 1000.0 {
+        //     accelerate(predicted_position-position());
+        // } 
         
 
 
         
         
         self.last_time = current_time();
-        self.last_target_velocity = target_velocity();
+        self.last_target_velocities.insert(0, target_velocity()-velocity());
+        let indexs = 15;
+        if indexs < self.last_target_velocities.len() {
+            self.last_target_velocities.remove(indexs);
+        }
+
     }
 }
 
@@ -408,7 +442,12 @@ fn make_relative_to_origin(origin: &Vec2, relative_point: &Vec2) -> Vec2 {
         y: relative_point.y - origin.y,
     }
 }
-
+fn kinematic_projectile_position(position: Vec2, velocity: Vec2, acceleration: Vec2, time: f64) -> Vec2 {
+    // calculates p = p₀ + v₀t + ½at²
+    let predicted_position = position + velocity * time + 0.5 * acceleration * time.powi(2);
+    // return p
+    predicted_position
+}
 fn main() {
 
 }
