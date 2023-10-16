@@ -335,54 +335,7 @@ impl Ship {
         return acceleration;
     }
 
-    fn predict_the_future(
-        &mut self,
-        f_target_position: Vec2,
-        f_target_velocity: Vec2,
-        f_target_acceleration: Vec2,
-    ) {
-        let mut my_position = position();
-        let mut my_velocity = velocity();
-
-        let mut my_acceleration = self.get_acceleration(
-            self.predict_target_with_guessing(
-                target(),
-                target_velocity() - velocity(),
-                f_target_acceleration,
-                1000.,
-            ),
-            position(),
-        );
-
-        let mut f_target_position = f_target_position;
-        let mut f_target_velocity = f_target_velocity;
-        let mut f_target_acceleration = f_target_acceleration;
-
-        let future_predicted_positions: Vec<vec::Vec2<f64>> = vec![];
-
-        // loops 5 times
-        for i in 1..15 {
-            if self.predicted_target_positions_for_drawing.len() > 200 {
-                self.predicted_target_positions_for_drawing.remove(0);
-            } 
-            // let i = i as f64;
-            my_position = kinematic_projectile_position(my_position, my_velocity, my_acceleration, TICK_LENGTH);
-            my_velocity = my_velocity+my_acceleration*TICK_LENGTH;
-
-
-            f_target_position = kinematic_projectile_position(f_target_position, f_target_velocity, my_acceleration, TICK_LENGTH);
-            f_target_velocity = f_target_velocity+f_target_acceleration*TICK_LENGTH;
-
-            // self.render_predicted_ship(my_position, 10., self.get_color(ColorName::Pink));
-
-            if i%5 == 0 {
-            self.render_predicted_ship(f_target_position, 10., self.get_color(ColorName::DarkGreen));
-            }
-            self.predicted_target_positions.push(f_target_position);
-            self.predicted_target_positions_for_drawing.push(f_target_position);
-            
-        }
-        }
+  
 
     fn draw_predicted_target_positions(&self) {
         for i in 0..self.predicted_target_positions_for_drawing.len() {
@@ -420,49 +373,30 @@ impl Ship {
         let bullet_speed: f64 = 1000.0;
 
 
-        if current_tick()%14 == 0 {
-            self.predict_the_future(
-                target(),
-                target_velocity(),
-                acceleration_of_target
-            )
-        }
+    
 
         
         
-        if self.target_positions.len() > 120 {
+        if self.target_positions.len() > 400 {
             self.target_positions.remove(0);
         } 
         self.target_positions.push(target());
         self.draw_predicted_target_positions();
         self.draw_target_positions();
         
-        let mut predicted_position = vec2(0.,0.);
-        if self.predicted_target_positions.len() > 0 {
-            let pos =self.predicted_target_positions.remove(0);
-            let mut acc = acceleration_of_target;
-            
-            if self.target_positions.get(self.target_positions.len()-2).is_some() {
-                acc =(pos-self.target_positions[self.target_positions.len()-2])-(self.last_target_velocity)/(TICK_LENGTH*2.)
-            }
 
-            if acc.length() >= 1000.0 {
-                debug!("geen oplossing")
-            }
-            predicted_position = self.predict_target_with_guessing(
-                pos,
-                target_velocity()-velocity(),
-                acc,
-                bullet_speed,
-            );
-        } else {
-            predicted_position = self.predict_target_with_guessing(
+            
+        let predicted_position = self.predict_target_with_guessing(
                 target(),
                 target_velocity()-velocity(),
                 acceleration_of_target,
                 bullet_speed,
             );
-        }
+            if self.predicted_target_positions_for_drawing.len() > 400 {
+                self.predicted_target_positions_for_drawing.remove(0);
+            } 
+            self.predicted_target_positions_for_drawing.push(predicted_position);
+    
 
         
 
@@ -517,7 +451,7 @@ impl Ship {
 
         if angle_difference > -0.005 && angle_difference < 0.005{
             // if current_tick() > 600 {
-                fire(0);
+                // fire(0);
             // }
             
         }
@@ -537,7 +471,7 @@ impl Ship {
         
         self.last_time = current_time();
         self.last_target_velocities.insert(0, target_velocity()-velocity());
-        let indexs = 4;
+        let indexs = 60;
         if indexs < self.last_target_velocities.len() {
             self.last_target_velocities.remove(indexs);
         }
