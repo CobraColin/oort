@@ -134,6 +134,10 @@ pub struct Ship {
     last_time:f64,
     color_palette:ColorPalette,
     last_target_velocities:Vec<Vec2>,
+    predicted_target_positions:Vec<Vec2>,
+    predicted_target_positions_for_drawing:Vec<Vec2>,
+    target_positions:Vec<Vec2>
+    
 }
 
 impl Ship {
@@ -143,6 +147,9 @@ impl Ship {
             last_time:0.0,
             color_palette:ColorPalette::new(),
             last_target_velocities: vec![],
+            predicted_target_positions:vec![],
+            predicted_target_positions_for_drawing:vec![],
+            target_positions:vec![],
         }
         
     }
@@ -310,50 +317,162 @@ impl Ship {
         vec2(0.0, 0.0)
     }
 
-    fn numerical_differentiation_of_acceleration_of_target(&self) -> Vec2{
-        let above_stairs = (target_velocity()-velocity())-self.last_target_velocities[0];
-        let down_stairs = TICK_LENGTH;
-        above_stairs/down_stairs
+
+
+    fn get_acceleration(&self, target_position: Vec2, my_pos: Vec2) -> Vec2 {
+        let mut acceleration = target_position - my_pos;
+        acceleration = acceleration.rotate(-heading());
+        if acceleration.x > max_forward_acceleration() {
+            acceleration *= max_forward_acceleration() / acceleration.x;
+        }
+        if acceleration.x < -max_backward_acceleration() {
+            acceleration *= max_backward_acceleration() / -acceleration.x;
+        }
+        if acceleration.y.abs() > max_lateral_acceleration() {
+            acceleration *= max_lateral_acceleration() / acceleration.y.abs();
+        }
+
+        return acceleration;
     }
 
+    fn predict_the_future(
+        &mut self,
+        f_target_position: Vec2,
+        f_target_velocity: Vec2,
+        f_target_acceleration: Vec2,
+    ) {
+        let mut my_position = position();
+        let mut my_velocity = velocity();
+
+        let mut my_acceleration = self.get_acceleration(
+            self.predict_target_with_guessing(
+                target(),
+                target_velocity() - velocity(),
+                f_target_acceleration,
+                1000.,
+            ),
+            position(),
+        );
+
+        let mut f_target_position = f_target_position;
+        let mut f_target_velocity = f_target_velocity;
+        let mut f_target_acceleration = f_target_acceleration;
+
+        let future_predicted_positions: Vec<vec::Vec2<f64>> = vec![];
+
+        // loops 5 times
+        for i in 1..15 {
+            if self.predicted_target_positions_for_drawing.len() > 200 {
+                self.predicted_target_positions_for_drawing.remove(0);
+            } 
+            // let i = i as f64;
+            my_position = kinematic_projectile_position(my_position, my_velocity, my_acceleration, TICK_LENGTH);
+            my_velocity = my_velocity+my_acceleration*TICK_LENGTH;
+
+
+            f_target_position = kinematic_projectile_position(f_target_position, f_target_velocity, my_acceleration, TICK_LENGTH);
+            f_target_velocity = f_target_velocity+f_target_acceleration*TICK_LENGTH;
+
+            // self.render_predicted_ship(my_position, 10., self.get_color(ColorName::Pink));
+
+            if i%5 == 0 {
+            self.render_predicted_ship(f_target_position, 10., self.get_color(ColorName::DarkGreen));
+            }
+            self.predicted_target_positions.push(f_target_position);
+            self.predicted_target_positions_for_drawing.push(f_target_position);
+            
+        }
+        }
+
+    fn draw_predicted_target_positions(&self) {
+        for i in 0..self.predicted_target_positions_for_drawing.len() {
+            if self.predicted_target_positions_for_drawing.get(i+1).is_none() {
+                break;
+            }
+            let pred_from = self.predicted_target_positions_for_drawing[i].clone();
+            let pred_to = self.predicted_target_positions_for_drawing[i+1].clone();
+
+            draw_line(pred_from, pred_to, self.get_color(ColorName::Red))
+        }
+    }
+
+    fn draw_target_positions(&self) {
+        for i in 0..self.target_positions.len() {
+            if self.target_positions.get(i+1).is_none() {
+                break;
+            }
+            let real_from = self.target_positions[i].clone();
+            let real_to = self.target_positions[i+1].clone();
+
+            draw_line(real_from, real_to, self.get_color(ColorName::Green))
+        }
+    }
     pub fn tick(&mut self) {
         let mut acceleration_of_target = vec2(0.0, 0.0);
-        if self.last_target_velocities.len() > 0 {
+        if self.last_target_velocities.len() > 1 {
             acceleration_of_target = self.calculate_average_acceleration_of_target();
-            acceleration_of_target = self.numerical_differentiation_of_acceleration_of_target();
+            
             // acceleration_of_target = (target_velocity()-velocity()-(self.last_target_velocity))/TICK_LENGTH
         }
-
-
+        
+        
 
         let bullet_speed: f64 = 1000.0;
-        let mut predicted_position = self.predict_target_in_one_go(
-            target(),
-            target_velocity(),
-            vec2(0.0,0.0),
-            bullet_speed,
-        );
 
 
-        let mut gokken_predicted_position = self.predict_target_with_guessing(
-            target(),
-            target_velocity()-velocity(),
-            acceleration_of_target,
-            bullet_speed,
-        );
-
-
-        debug!("target_velocity: {}", target_velocity().length());
-        debug!("----------");
-        debug!("no guessing: {}", predicted_position);
-        debug!("guessing     : {}", gokken_predicted_position);
-
-
-
-        let switch = true;
-        if switch {
-            std::mem::swap(&mut predicted_position, &mut gokken_predicted_position);
+        if current_tick()%14 == 0 {
+            self.predict_the_future(
+                target(),
+                target_velocity(),
+                acceleration_of_target
+            )
         }
+
+        
+        
+        if self.target_positions.len() > 120 {
+            self.target_positions.remove(0);
+        } 
+        self.target_positions.push(target());
+        self.draw_predicted_target_positions();
+        self.draw_target_positions();
+        
+        let mut predicted_position = vec2(0.,0.);
+        if self.predicted_target_positions.len() > 0 {
+            let pos =self.predicted_target_positions.remove(0);
+            let mut acc = acceleration_of_target;
+            
+            if self.target_positions.get(self.target_positions.len()-2).is_some() {
+                acc =(pos-self.target_positions[self.target_positions.len()-2])-(self.last_target_velocity)/(TICK_LENGTH*2.)
+            }
+
+            if acc.length() >= 1000.0 {
+                debug!("geen oplossing")
+            }
+            predicted_position = self.predict_target_with_guessing(
+                pos,
+                target_velocity()-velocity(),
+                acc,
+                bullet_speed,
+            );
+        } else {
+            predicted_position = self.predict_target_with_guessing(
+                target(),
+                target_velocity()-velocity(),
+                acceleration_of_target,
+                bullet_speed,
+            );
+        }
+
+        
+
+
+        debug!("target_speed: {}", target_velocity().length());
+        debug!("----------");
+
+        debug!("guessing     : {}", self.predicted_target_positions.len());
+
+
 
         let angle_difference = angle_diff(
             heading(),
@@ -405,7 +524,7 @@ impl Ship {
 
         self.look_at(angle_difference,predicted_position,endpoint);
         
-        debug!("acceleration: {}",predicted_position-position());
+        debug!("predicted_position: {}",predicted_position);
         // if position().distance(target()) < 1000.0 {
         //     accelerate(predicted_position-position()/100.);
         // } else if position().distance(target()) > 1000.0 {
@@ -418,7 +537,7 @@ impl Ship {
         
         self.last_time = current_time();
         self.last_target_velocities.insert(0, target_velocity()-velocity());
-        let indexs = 15;
+        let indexs = 4;
         if indexs < self.last_target_velocities.len() {
             self.last_target_velocities.remove(indexs);
         }
