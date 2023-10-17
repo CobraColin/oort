@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use oort_api::prelude::{maths_rs::vec, *};
+use oort_api::prelude::{maths_rs::{vec, prelude::Cast}, *};
 
 #[derive(Clone)]
 enum ColorName {
@@ -342,50 +342,11 @@ impl Ship {
         return acceleration;
     }
 
-    fn draw_predicted_target_positions(&self) {
-        let target_vec = &self.predicted_target_positions_for_drawing;
-        for i in 0..target_vec.len() {
-            if target_vec.len() > 400 {
-                if i <= target_vec.len() - 400 {
-                    continue;
-                }
-            }
-
-            if target_vec.get(i + 1).is_none() {
-                break;
-            }
-
-            let pred_from = target_vec[i].clone();
-            let pred_to = target_vec[i + 1].clone();
-
-            draw_line(pred_from, pred_to, self.get_color(ColorName::Red))
-        }
-    }
-
-    fn draw_target_positions(&self) {
-        // let vec_to_draw = douglas_peucker(&self.target_positions, 0.05);
-        // for i in 0..vec_to_draw.len() {
-            // if vec_to_draw.len() > 400 {
-                // if i <= vec_to_draw.len() - 400 {
-                    // continue;
-                // }
-//             // }
-// // 
-            // if vec_to_draw.get(i + 1).is_none() {
-                // break;
-            // }
 
 
-            // let real_from = vec_to_draw[i].clone();
-            // let real_to = vec_to_draw[i + 1].clone();
 
-            // draw_line(real_from, real_to, self.get_color(ColorName::Green))
-        // }
-    }
 
-    fn construct_vec_with_real_positions_and_predicted_positions(&self) {
 
-    }
 
     pub fn tick(&mut self) {
         let mut acceleration_of_target = vec2(0.0, 0.0);
@@ -402,8 +363,9 @@ impl Ship {
 
 
         self.target_positions.push(target());
-        self.draw_predicted_target_positions();
-        self.draw_target_positions();
+        
+        draw_a_line_from_a_vec(&self.target_positions, self.get_color(ColorName::Green));
+        
 
         let mut predicted_position = self.predict_target_with_guessing(
             target(),
@@ -412,12 +374,17 @@ impl Ship {
             bullet_speed,
         );
 
-
+        
 
         self.predicted_target_positions_for_drawing
             .push(predicted_position);
+        
+        draw_a_line_from_a_vec(&self.predicted_target_positions_for_drawing, self.get_color(ColorName::Red));
 
-        predicted_position = *smooth_vector(&self.predicted_target_positions_for_drawing, 2)
+
+        self.predicted_target_positions.push(predicted_position);
+
+        predicted_position = *smooth_vector(&self.predicted_target_positions.split_off(self.predicted_target_positions.len() - 10), 2)
             .last()
             .unwrap();
 
@@ -432,8 +399,10 @@ impl Ship {
         );
         debug!("speed_of_target          : {}", target_velocity().length());
         debug!("----------");
+        
         debug!("orginal lines: {}",self.target_positions.len());
-        debug!("simplified lines: {}",douglas_peucker(&self.target_positions, 0.05).len());
+        
+        // debug!("simplified lines: {}",);
 
         let angle_difference = angle_diff(heading(), (predicted_position - position()).angle());
 
@@ -459,7 +428,7 @@ impl Ship {
 
         if angle_difference > -0.005 && angle_difference < 0.005 {
             // if current_tick() > 600 {
-            fire(0);
+            // fire(0);
             // }
         }
 
@@ -567,6 +536,24 @@ fn norm_squared(v: Vec2) -> f64 {
     v.x.powi(2) + v.y.powi(2)
 }
 
+fn draw_a_line_from_a_vec(vec_to_draw:&Vec<Vec2>,color:u32) {
+    for i in 0..vec_to_draw.len() {
+        if vec_to_draw.len() > 400 {
+            if i <= vec_to_draw.len() - 400 {
+                continue;
+            }
+        }
+
+        if vec_to_draw.get(i + 1).is_none() {
+            break;
+        }
+
+        let pred_from = vec_to_draw[i].clone();
+        let pred_to = vec_to_draw[i + 1].clone();
+
+        draw_line(pred_from, pred_to, color)
+    }
+}
 
 fn douglas_peucker_iterative(line: &Vec<Vec2>, epsilon: f64) -> Vec<Vec2> {
     let mut stack = vec![(0, line.len() - 1)];
@@ -596,7 +583,7 @@ fn douglas_peucker_iterative(line: &Vec<Vec2>, epsilon: f64) -> Vec<Vec2> {
 }
 
 fn line_distance(point: &Vec2, start: &Vec2, end: &Vec2) -> f64 {
-    let n = abs((end.y - start.y) * point.x - (end.x - start.x) * point.y + end.x * start.y - end.y * start.x);
+    let n = ((end.y - start.y) * point.x - (end.x - start.x) * point.y + end.x * start.y - end.y * start.x).as_f64().abs();
     let d = ((end.y - start.y).powi(2) + (end.x - start.x).powi(2)).sqrt();
     n / d
 }
