@@ -4,8 +4,9 @@ use rustsourcebundler::Bundler;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut bundler: Bundler =
-        Bundler::new(Path::new("src/lib.rs"), Path::new("target/bundle_output.rs"));
-    bundler.crate_name("oort_ai");
+        Bundler::new(Path::new("src/bundler_target.rs"), Path::new("target/bundle_output.rs"));
+    bundler.crate_name("oort");
     bundler.run();
+    
     Ok(())
 }
