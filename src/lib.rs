@@ -1,55 +1,34 @@
 mod math;
+mod logic;
 use math::target_prediction::*;
 use math::general::*;
 use math::smoothing_functions::sma_filter;
 
 mod misc;
 use misc::colors::*;
+use misc::drawing::draw_a_line_from_a_vec;
 
+use misc::information_storage::InformationBank;
 use oort_api::prelude::{maths_rs::vec, *};
 
 
 pub struct Ship {
-    last_target_velocity: Vec2,
-    last_time: f64,
     color_palette: ColorPalette,
-    last_target_velocities: Vec<Vec2>,
-    predicted_target_positions: Vec<Vec2>,
-    predicted_target_positions_for_drawing: Vec<Vec2>,
-    target_positions: Vec<Vec2>,
-    information_storage: Vec<tick_information>,
+    information: InformationBank,
 }
 
-struct tick_information {
-    target_position: Vec2,
-    target_velocity: Vec2,
-    predicted_target_position: Vec2,
-    my_position: Vec2,
-    my_velocity: Vec2,
-}
+
 
 impl Ship {
     pub fn new() -> Ship {
         Ship {
-            last_target_velocity: vec2(0.0, 0.0),
-            last_time: 0.0,
             color_palette: ColorPalette::new(),
-            last_target_velocities: vec![],
-            predicted_target_positions: vec![],
-            predicted_target_positions_for_drawing: vec![],
-            target_positions: vec![],
-            information_storage: vec![],
+            information: InformationBank::new(),
         }
     }
     fn get_color(&self, color_name: ColorName) -> u32 {
         self.color_palette.colors[color_name as usize]
     }
-
-
-
-
-
-
 
 
     fn look_at(&mut self, angle: f64, final_position: Vec2, endpoint: Vec2) {
@@ -85,79 +64,41 @@ impl Ship {
         }
     }
 
-    fn calculate_average_acceleration_of_target(&self) -> Vec2 {
-        let velocities: Vec<vec::Vec2<f64>> = self.last_target_velocities.clone();
-        let mut total: Vec<vec::Vec2<f64>> = vec![];
-        let vec_length = velocities.len();
 
-        let current_acceleration = (target_velocity() - velocity() - velocities[0]) / TICK_LENGTH;
-        
-        for i in (0..vec_length).rev() {
-            let current_velocity = velocities[i];
-
-            if i == 0 {
-                total.push(current_acceleration);
-                // let smoothed_vec = sma_filter(&total, 0);
-
-                return take_direction_into_acount(total);
-            }
-
-            let acceleration = (velocities[i - 1] - current_velocity) / TICK_LENGTH;
-            // if !two_vecs_have_same_signs(acceleration, current_acceleration){
-                // continue;
-            // }
-            total.push(acceleration);
-        }
-        vec2(0.0, 0.0)
-    }
 
 
     pub fn tick(&mut self) {
-        let mut acceleration_of_target = vec2(0.0, 0.0);
-        if self.last_target_velocities.len() > 1 {
-            acceleration_of_target = self.calculate_average_acceleration_of_target();
+        
+        if current_tick() == 0 {
+            let current_target = self.information.make_target(target());
+            current_target.make_data_entry(Some(target()), Some(target_velocity()), None);
         }
+
+        let current_target = self.information.get_id_last_target_making();
+        let current_target = self.information.targets.get_mut(current_target).unwrap();
 
         let bullet_speed: f64 = 1000.0;
+        let acceleration_of_target = current_target.calculate_average_acceleration_of_target(target_velocity(), velocity());
 
 
-        self.target_positions.push(target());
-        
-        draw_a_line_from_a_vec(&self.target_positions, self.get_color(ColorName::Green));
-        
-
-        let mut predicted_position = predict_target_with_guessing(
-            target(),
-            target_velocity() - velocity(),
-            acceleration_of_target,
-            position(),
-            bullet_speed,
-        );
-
-        
-
-        self.predicted_target_positions_for_drawing
-            .push(predicted_position);
-        
-        draw_a_line_from_a_vec(&self.predicted_target_positions_for_drawing, self.get_color(ColorName::Red));
 
 
-        self.predicted_target_positions.push(predicted_position);
-        if self.predicted_target_positions.len() > 11 {
-            predicted_position = *sma_filter(&self.predicted_target_positions.split_off(self.predicted_target_positions.len() - 10), 2)
-                .last()
-                .unwrap(); 
+        if true {
+        draw_a_line_from_a_vec(&vec![], self.get_color(ColorName::Red),400);
         }
+
+
 
         debug!("----------");
         debug!(
             "av_acceleration_of_target: {}",
             acceleration_of_target.length()
         );
-        debug!(
-            "acceleration_of_target   : {}",
-            ((target_velocity() - velocity() - (self.last_target_velocity)) / TICK_LENGTH).length()
-        );
+        // debug!(
+        //     "acceleration_of_target   : {}",
+        //     ((target_velocity() - velocity() - (self.last_target_velocity)) / TICK_LENGTH).length()
+        // );
+        
         debug!("speed_of_target          : {}", target_velocity().length());
         debug!("distance to target       : {}",position().distance(target()));
         debug!("----------");
@@ -167,35 +108,35 @@ impl Ship {
         
         // debug!("simplified lines: {}",);
 
-        let angle_difference = angle_diff(heading(), (predicted_position - position()).angle());
+        // let angle_difference = angle_diff(heading(), (predicted_position - position()).angle());
 
-        // calculate a vec2 that goes from our headings and has the length of our position to predicted_position
-        let endpoint = calculate_vector_at_end_of_line_heading_in_a_direction(position(),position().distance(predicted_position),heading());
+        // // calculate a vec2 that goes from our headings and has the length of our position to predicted_position
+        // let endpoint = calculate_vector_at_end_of_line_heading_in_a_direction(position(),position().distance(predicted_position),heading());
 
-        // draw lines from our position to target and
-        draw_line(position(), target(), self.get_color(ColorName::Red));
-        draw_line(position(), endpoint, self.get_color(ColorName::Green));
+        // // draw lines from our position to target and
+        // draw_line(position(), target(), self.get_color(ColorName::Red));
+        // draw_line(position(), endpoint, self.get_color(ColorName::Green));
 
-        draw_line(
-            predicted_position,
-            target(),
-            self.get_color(ColorName::MediumPurple),
-        );
-        draw_line(
-            position(),
-            predicted_position,
-            self.get_color(ColorName::Blue),
-        );
+        // draw_line(
+        //     predicted_position,
+        //     target(),
+        //     self.get_color(ColorName::MediumPurple),
+        // );
+        // draw_line(
+        //     position(),
+        //     predicted_position,
+        //     self.get_color(ColorName::Blue),
+        // );
 
-        draw_triangle(predicted_position, 10.0, self.get_color(ColorName::DarkRed));
+        // draw_triangle(predicted_position, 10.0, self.get_color(ColorName::DarkRed));
 
-        if angle_difference > -0.005 && angle_difference < 0.005 {
-            // if current_tick() > 900 {
-            fire(0);
-            // }
-        }
+        // if angle_difference > -0.005 && angle_difference < 0.005 {
+        //     // if current_tick() > 900 {
+        //     fire(0);
+        //     // }
+        // }
 
-        self.look_at(angle_difference, predicted_position, endpoint);
+        // self.look_at(angle_difference, predicted_position, endpoint);
  
 
  
@@ -208,165 +149,40 @@ impl Ship {
         //     accelerate(predicted_position-position());
         // }
 
-        self.last_time = current_time();
-        self.last_target_velocities.insert(0, target_velocity() - velocity());
+        // self.last_time = current_time();
+        // self.last_target_velocities.insert(0, target_velocity() - velocity());
 
-        self.last_target_velocity = target_velocity() - velocity();
-        let indexs = 60;
-        if indexs < self.last_target_velocities.len() {
-            self.last_target_velocities.remove(indexs);
-        }
-
-        let current_tick_information = tick_information {
-            target_position: target(),
-            target_velocity: target_velocity(),
-            predicted_target_position: predicted_position,
-            my_position: position(),
-            my_velocity: velocity(),
-        };
-
-        self.information_storage.push(current_tick_information);
-    }
-}
-
-
-
-
-
-
-
-
-
-fn draw_a_line_from_a_vec(vec_to_draw:&Vec<Vec2>,color:u32) {
-    for i in 0..vec_to_draw.len() {
-        if vec_to_draw.len() > 400 {
-            if i <= vec_to_draw.len() - 400 {
-                continue;
-            }
-        }
-
-        if vec_to_draw.get(i + 1).is_none() {
-            break;
-        }
-
-        let pred_from = vec_to_draw[i].clone();
-        let pred_to = vec_to_draw[i + 1].clone();
-
-        draw_line(pred_from, pred_to, color)
-    }
-}
-
-
-
-fn two_vecs_have_same_signs(compare1:Vec2,compare2:Vec2) -> bool {
-    if (compare1.x.is_sign_negative() && compare2.x.is_sign_positive()) || ((compare1.y.is_sign_negative() && compare2.y.is_sign_positive())) {
-        return false;
-    }
-    return true;
-}
-
-fn get_until_signs_are_not_same(vec_of_a:&Vec<Vec2>) -> usize {
-    //returns false if the vec is empty
-    if vec_of_a.len() == 0 {
-        return 0
-    }
-    let compare_to = *vec_of_a.last().unwrap();
-    for i in (0..vec_of_a.len()-1).rev() {
-        
-        if !two_vecs_have_same_signs(compare_to,vec_of_a[i]) {
-            
-            if i == 0 {
-                return 0
-            }
-            return i
-        }
-    }
-
-    return 0
-}
-
-fn get_change_in_percentage_between_two_acceleration_vec2(older: &Vec2, new: &Vec2) -> f64 {
-    let magnitudeolder = older.length();
-    let magnitudenew = new.length();
-
-    if magnitudeolder == 0.0 {
-        return 100.0; // If the initial value is 0, we'll consider the change to be 100%
-    }
-
-    let change = magnitudenew - magnitudeolder;
-    let percentage_change = (change / magnitudeolder) * 100.0;
-
-    percentage_change.abs()
-}
-fn get_until_acceleration_changes_too_much(vec_of_a:&Vec<Vec2>,percentage:f64) -> usize {
-    //returns 0 if the vec is empty
-    if vec_of_a.len() == 0 {
-        return 0
-    }
-
-    let compare_to = *vec_of_a.last().unwrap();
-    let mut max_recorded_value = 0.0;
-    for i in (0..vec_of_a.len()-1).rev() {
-        let change_percentage = 
-        get_change_in_percentage_between_two_acceleration_vec2(
-            &vec_of_a[i],
-            &compare_to
-        );
-        debug!("change{}",change_percentage);
-        if change_percentage > max_recorded_value {
-            max_recorded_value = change_percentage
-        } else {
-            return i
-        }
-        
-        if change_percentage > percentage {
-            if i == 0 {
-                return 0
-            }
-            return i
-        }
-    }
-
-    return 0
-}
-
-
-
-fn take_direction_into_acount(mut accelerations:Vec<Vec2>) -> Vec2 {
-    let mut vec_length = get_until_signs_are_not_same(&accelerations);
-    
-
-
-    while  accelerations.len() > 10 && vec_length > 50 {
-        accelerations.remove(accelerations.len()-1);
-        vec_length = get_until_signs_are_not_same(&accelerations);
-    }
-
-    debug!("vec_length {}",vec_length);
-    
-    if accelerations.len() > 10 {
-        let mut new_vec = accelerations.clone().split_off(vec_length);
-        return calculate_average(&new_vec).unwrap();
-        // debug!("veclength {}",new_vec.len());
-    
-        // let new_vec_length_for_acceleration_change = get_until_acceleration_changes_too_much(
-        //     &new_vec,
-        //     10.
-        // );
-     
-        // debug!("new_vec_length_for_acceleration_change: {}",new_vec_length_for_acceleration_change);
-    
-        
-    
-    
-        // if new_vec.len() > 10 && new_vec_length_for_acceleration_change < new_vec.len() {
-        // // if new_vec.len() > 10 {
-        //     new_vec = new_vec.clone().split_off(new_vec_length_for_acceleration_change);
-        //     return calculate_average(&new_vec).unwrap();
+        // self.last_target_velocity = target_velocity() - velocity();
+        // let indexs = 60;
+        // if indexs < self.last_target_velocities.len() {
+        //     self.last_target_velocities.remove(indexs);
         // }
-    }
 
-    return calculate_average(&sma_filter(&accelerations, 2)).unwrap();
+        // let current_tick_information = tick_information {
+        //     target_position: target(),
+        //     target_velocity: target_velocity(),
+        //     predicted_target_position: predicted_position,
+        //     my_position: position(),
+        //     my_velocity: velocity(),
+        // };
+
+        // self.information_storage.push(current_tick_information);
+        current_target.make_data_entry(Some(target()), Some(target_velocity()), None);
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

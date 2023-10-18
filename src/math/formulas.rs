@@ -11,3 +11,15 @@ pub fn kinematic_projectile_position(
     // return p
     predicted_position
 }
+
+pub fn kinematic_angular_position(
+    initial_angle: f64,
+    initial_angular_velocity: f64,
+    angular_acceleration: f64,
+    time: f64,
+) -> f64 {
+    // calculates θ = θ + ω​t + ½​αt²
+    let predicted_angle = initial_angle + initial_angular_velocity * time + 0.5 * angular_acceleration * time.powi(2);
+    // return θ
+    predicted_angle
+}

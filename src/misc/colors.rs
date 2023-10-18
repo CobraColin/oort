@@ -112,4 +112,8 @@ impl ColorPalette {
 
         ColorPalette { colors }
     }
+
+    pub fn get_color(&self, color_name: ColorName) -> u32 {
+        self.colors[color_name as usize]
+    }
 }
