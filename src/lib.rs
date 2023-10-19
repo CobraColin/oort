@@ -1,20 +1,24 @@
 mod math;
 mod logic;
+mod misc;
+
 use math::target_prediction::*;
 use math::general::*;
 use math::smoothing_functions::sma_filter;
 
-mod misc;
+
 use misc::colors::*;
 use misc::drawing::draw_a_line_from_a_vec;
 
-use misc::information_storage::InformationBank;
+
 use oort_api::prelude::{maths_rs::vec, *};
+
+
 
 
 pub struct Ship {
     color_palette: ColorPalette,
-    information: InformationBank,
+    
 }
 
 
@@ -23,7 +27,7 @@ impl Ship {
     pub fn new() -> Ship {
         Ship {
             color_palette: ColorPalette::new(),
-            information: InformationBank::new(),
+            
         }
     }
     fn get_color(&self, color_name: ColorName) -> u32 {
@@ -69,18 +73,7 @@ impl Ship {
 
     pub fn tick(&mut self) {
         
-        if current_tick() == 0 {
-            let current_target = self.information.make_target(target());
-            current_target.make_data_entry(Some(target()), Some(target_velocity()), None);
-        }
-
-        let current_target = self.information.get_id_last_target_making();
-        let current_target = self.information.targets.get_mut(current_target).unwrap();
-
-        let bullet_speed: f64 = 1000.0;
-        let acceleration_of_target = current_target.calculate_average_acceleration_of_target(target_velocity(), velocity());
-
-
+        let acceleration_of_target: Vec2 = Default::default();
 
 
         if true {
@@ -102,6 +95,7 @@ impl Ship {
         debug!("speed_of_target          : {}", target_velocity().length());
         debug!("distance to target       : {}",position().distance(target()));
         debug!("----------");
+        
         
 
 
@@ -167,7 +161,8 @@ impl Ship {
         // };
 
         // self.information_storage.push(current_tick_information);
-        current_target.make_data_entry(Some(target()), Some(target_velocity()), None);
+
+        
     }
 }
 
